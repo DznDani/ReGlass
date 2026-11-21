@@ -9,6 +9,7 @@ ReGlass Is Meant To Be An API For Any Minecraft Mod.
 ### Features
 - Easy, Customizable, And Fast Glass Rendering API.
 - Highly Optimized, Almost Vanilla Performance (For Dedicated GPU PCs).
+- Physically-based Chromatic Aberration (Per-channel Refraction Dispersion).
 - Some Minecraft UI Redesigns.
 
 ### API Example:
@@ -21,7 +22,8 @@ ReGlassApi.create(context).fromWidget(someWidget).cornerRadius(cornerRadiusPx).r
 customStyle = WidgetStyle.create()
         .tint(Formatting.GOLD.getColorValue(), 0.4f)
         .blurRadius(0).shadow(25f, 0.2f, 0f, 3f)
-        .smoothing(.05f).shadowColor(0x000000, 1.0f);
+        .smoothing(.05f).shadowColor(0x000000, 1.0f)
+        .refractionDispersion(7.0f); // 0 = off, 7 = default, ~20 = strong
 
 // Static Based Rendering E.g. Called From Screen `render()`.
 ReGlassApi.create(context).dimensions(10, 10, 100, 100).cornerRadius(cornerRadiusPx).style(customStyle).render();

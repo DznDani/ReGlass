@@ -227,6 +227,12 @@ public class ReGlassConfigScreen extends Screen {
 //#endif
         y += widgetHeight + gap;
 //#if MC >= 26
+        addSlider(MappedSlider.floatSlider(widgetX, y, widgetWidth, widgetHeight, Component.literal("Dispersion"), 0f, 20f, cfg.defaultRefDispersion, v -> cfg.defaultRefDispersion = v.floatValue()), y).active = cfg.features.enableRedesign;
+//#else
+        addSlider(MappedSlider.floatSlider(widgetX, y, widgetWidth, widgetHeight, Text.literal("Dispersion"), 0f, 20f, cfg.defaultRefDispersion, v -> cfg.defaultRefDispersion = v.floatValue()), y).active = cfg.features.enableRedesign;
+//#endif
+        y += widgetHeight + gap;
+//#if MC >= 26
         addSlider(MappedSlider.floatSlider(widgetX, y, widgetWidth, widgetHeight, Component.literal("Fresnel Range"), 0f, 60f, cfg.defaultRefFresnelRange, v -> cfg.defaultRefFresnelRange = v.floatValue()), y).active = cfg.features.enableRedesign;
 //#else
         addSlider(MappedSlider.floatSlider(widgetX, y, widgetWidth, widgetHeight, Text.literal("Fresnel Range"), 0f, 60f, cfg.defaultRefFresnelRange, v -> cfg.defaultRefFresnelRange = v.floatValue()), y).active = cfg.features.enableRedesign;

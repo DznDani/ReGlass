@@ -192,6 +192,18 @@ SDFResult fieldWidgets(vec2 p, vec2 inSize, vec2 fragCoord, float layer) {
     return f;
 }
 
+#define DISPERSION_TAPS 7
+#define DISPERSION_SCALE 0.004
+
+float edgeFactorForIor(float nmerged, float refThickness, float ior) {
+    if (nmerged >= refThickness) return 0.0;
+    float xR     = 1.0 - nmerged / max(refThickness, 1e-6);
+    float thetaI = asin(pow(clamp(xR, 0.0, 1.0), 2.0));
+    float sinT   = clamp(sin(thetaI) / max(ior, 1.0), -1.0, 1.0);
+    float thetaT = asin(sinT);
+    return -tan(thetaT - thetaI);
+}
+
 void main() {
     vec2 inSize = InSize;
     if (inSize.x <= 0.0 || inSize.y <= 0.0) inSize = vec2(textureSize(Sampler0, 0));
@@ -289,24 +301,26 @@ void main() {
             if (nlen > 1e-6) normal /= nlen;
 
             float nmerged = -merged * inSize.y;
-            float xR = 1.0 - nmerged / max(refThickness, 1e-6);
-            float thetaI = asin(pow(clamp(xR, 0.0, 1.0), 2.0));
-            float thetaT = asin((1.0 / max(refFactor, 1e-6)) * sin(thetaI));
-            float edgeFactor = -tan(thetaT - thetaI);
-            if (nmerged >= refThickness) edgeFactor = 0.0;
 
-            vec2 refrOffset = -normal * edgeFactor * 0.08 * vec2(inSize.y / inSize.x, 1.0);
-            vec4 blurred = sampleBlur(blurIndex, uvPix + refrOffset);
+            vec2 refrDir = -normal * 0.08 * vec2(inSize.y / inSize.x, 1.0);
 
-            vec4 dispPixel;
-            {
-                const float NR = 0.985;
-                const float NG = 1.000;
-                const float NB = 1.015;
-                dispPixel.r = sampleBlur(blurIndex, uvPix + refrOffset * (1.0 - (NR - 1.0) * refDisp)).r;
-                dispPixel.g = sampleBlur(blurIndex, uvPix + refrOffset * (1.0 - (NG - 1.0) * refDisp)).g;
-                dispPixel.b = sampleBlur(blurIndex, uvPix + refrOffset * (1.0 - (NB - 1.0) * refDisp)).b;
-                dispPixel.a = 1.0;
+            float edgeG = edgeFactorForIor(nmerged, refThickness, refFactor);
+            vec4 blurred = sampleBlur(blurIndex, uvPix + refrDir * edgeG);
+
+            vec4 dispPixel = vec4(blurred.rgb, 1.0);
+            float spread = refDisp * DISPERSION_SCALE;
+            if (spread > 1e-4 && nmerged < refThickness) {
+                vec3 acc = vec3(0.0);
+                vec3 wsum = vec3(0.0);
+                for (int k = 0; k < DISPERSION_TAPS; ++k) {
+                    float t = float(k) / float(DISPERSION_TAPS - 1);
+                    float ior = refFactor + (t * 2.0 - 1.0) * spread;
+                    vec3 w = max(vec3(1.0 - 2.0 * t, 1.0 - abs(2.0 * t - 1.0), 2.0 * t - 1.0), 0.0);
+                    float e = edgeFactorForIor(nmerged, refThickness, ior);
+                    acc += sampleBlur(blurIndex, uvPix + refrDir * e).rgb * w;
+                    wsum += w;
+                }
+                dispPixel.rgb = acc / max(wsum, vec3(1e-4));
             }
 
             vec4 outColor = mix(dispPixel, vec4(tint.rgb, 1.0), tint.a * 0.8);
