@@ -2,6 +2,8 @@ package restudio.reglass.client.screen.config;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 //#if MC >= 26
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
@@ -23,6 +25,7 @@ import restudio.reglass.client.LiquidGlassWidget;
 import restudio.reglass.client.api.ReGlassConfig;
 import restudio.reglass.client.api.WidgetStyle;
 import restudio.reglass.client.config.ReGlassSettingsIO;
+import restudio.reglass.client.runtime.HoverCurve;
 import restudio.reglass.client.ui.MappedSlider;
 
 public class ReGlassConfigScreen extends Screen {
@@ -262,9 +265,31 @@ public class ReGlassConfigScreen extends Screen {
         y += widgetHeight;
 
 //#if MC >= 26
-        addSlider(MappedSlider.floatSlider(widgetX, y, widgetWidth, widgetHeight, Component.literal("Hover Scale (px)"), 0f, 6f, cfg.hoverScalePx, v -> cfg.hoverScalePx = v.floatValue()), y).active = cfg.features.enableRedesign;
+        addSlider(MappedSlider.floatSlider(widgetX, y, widgetWidth, widgetHeight, Component.literal("Hover Scale (px)"), 0f, 30f, cfg.hoverScalePx, v -> cfg.hoverScalePx = v.floatValue()), y).active = cfg.features.enableRedesign;
 //#else
-        addSlider(MappedSlider.floatSlider(widgetX, y, widgetWidth, widgetHeight, Text.literal("Hover Scale (px)"), 0f, 6f, cfg.hoverScalePx, v -> cfg.hoverScalePx = v.floatValue()), y).active = cfg.features.enableRedesign;
+        addSlider(MappedSlider.floatSlider(widgetX, y, widgetWidth, widgetHeight, Text.literal("Hover Scale (px)"), 0f, 30f, cfg.hoverScalePx, v -> cfg.hoverScalePx = v.floatValue()), y).active = cfg.features.enableRedesign;
+//#endif
+        y += widgetHeight + gap;
+        addCurveSelectorRow("Hover In", () -> cfg.hoverInCurve, c -> cfg.hoverInCurve = c, widgetX, y, widgetWidth, widgetHeight, cfg.features.enableRedesign);
+        y += widgetHeight + gap;
+//#if MC >= 26
+        addSlider(MappedSlider.floatSlider(widgetX, y, widgetWidth, widgetHeight, Component.literal("Hover In Duration (s)"), 0f, 2f, cfg.hoverInDurationSec, v -> cfg.hoverInDurationSec = v.floatValue()), y).active = cfg.features.enableRedesign;
+//#else
+        addSlider(MappedSlider.floatSlider(widgetX, y, widgetWidth, widgetHeight, Text.literal("Hover In Duration (s)"), 0f, 2f, cfg.hoverInDurationSec, v -> cfg.hoverInDurationSec = v.floatValue()), y).active = cfg.features.enableRedesign;
+//#endif
+        y += widgetHeight + gap;
+        addCurveSelectorRow("Hover Out", () -> cfg.hoverOutCurve, c -> cfg.hoverOutCurve = c, widgetX, y, widgetWidth, widgetHeight, cfg.features.enableRedesign);
+        y += widgetHeight + gap;
+//#if MC >= 26
+        addSlider(MappedSlider.floatSlider(widgetX, y, widgetWidth, widgetHeight, Component.literal("Hover Out Duration (s)"), 0f, 2f, cfg.hoverOutDurationSec, v -> cfg.hoverOutDurationSec = v.floatValue()), y).active = cfg.features.enableRedesign;
+//#else
+        addSlider(MappedSlider.floatSlider(widgetX, y, widgetWidth, widgetHeight, Text.literal("Hover Out Duration (s)"), 0f, 2f, cfg.hoverOutDurationSec, v -> cfg.hoverOutDurationSec = v.floatValue()), y).active = cfg.features.enableRedesign;
+//#endif
+        y += widgetHeight + gap;
+//#if MC >= 26
+        addSlider(MappedSlider.floatSlider(widgetX, y, widgetWidth, widgetHeight, Component.literal("Hover Bounce (iOS)"), 0f, 0.75f, cfg.hoverBounce, v -> cfg.hoverBounce = v.floatValue()), y).active = cfg.features.enableRedesign;
+//#else
+        addSlider(MappedSlider.floatSlider(widgetX, y, widgetWidth, widgetHeight, Text.literal("Hover Bounce (iOS)"), 0f, 0.75f, cfg.hoverBounce, v -> cfg.hoverBounce = v.floatValue()), y).active = cfg.features.enableRedesign;
 //#endif
         y += widgetHeight + gap;
 //#if MC >= 26
@@ -433,6 +458,54 @@ public class ReGlassConfigScreen extends Screen {
 //#else
         addPositionedWidget(new TitleWidget(x, y, width, 20, Text.literal(title)), y);
 //#endif
+    }
+
+    private void addCurveSelectorRow(
+            String label,
+            Supplier<HoverCurve> getter,
+            Consumer<HoverCurve> setter,
+            int x,
+            int y,
+            int width,
+            int height,
+            boolean active
+    ) {
+        int arrowWidth = 20;
+        int centerWidth = Math.max(40, width - arrowWidth * 2 - 4);
+        int centerX = x + arrowWidth + 2;
+        int rightX = x + width - arrowWidth;
+
+//#if MC >= 26
+        Button centerBtn = Button.builder(Component.literal(label + ": " + getter.get().displayName()), button -> {
+            setter.accept(getter.get().next());
+            button.setMessage(Component.literal(label + ": " + getter.get().displayName()));
+        }).bounds(centerX, y, centerWidth, height).build();
+        Button prevBtn = Button.builder(Component.literal("<"), button -> {
+            setter.accept(getter.get().previous());
+            centerBtn.setMessage(Component.literal(label + ": " + getter.get().displayName()));
+        }).bounds(x, y, arrowWidth, height).build();
+        Button nextBtn = Button.builder(Component.literal(">"), button -> {
+            setter.accept(getter.get().next());
+            centerBtn.setMessage(Component.literal(label + ": " + getter.get().displayName()));
+        }).bounds(rightX, y, arrowWidth, height).build();
+//#else
+        ButtonWidget centerBtn = ButtonWidget.builder(Text.literal(label + ": " + getter.get().displayName()), button -> {
+            setter.accept(getter.get().next());
+            button.setMessage(Text.literal(label + ": " + getter.get().displayName()));
+        }).dimensions(centerX, y, centerWidth, height).build();
+        ButtonWidget prevBtn = ButtonWidget.builder(Text.literal("<"), button -> {
+            setter.accept(getter.get().previous());
+            centerBtn.setMessage(Text.literal(label + ": " + getter.get().displayName()));
+        }).dimensions(x, y, arrowWidth, height).build();
+        ButtonWidget nextBtn = ButtonWidget.builder(Text.literal(">"), button -> {
+            setter.accept(getter.get().next());
+            centerBtn.setMessage(Text.literal(label + ": " + getter.get().displayName()));
+        }).dimensions(rightX, y, arrowWidth, height).build();
+//#endif
+
+        addPositionedWidget(prevBtn, y).active = active;
+        addPositionedWidget(centerBtn, y).active = active;
+        addPositionedWidget(nextBtn, y).active = active;
     }
 
     @Override

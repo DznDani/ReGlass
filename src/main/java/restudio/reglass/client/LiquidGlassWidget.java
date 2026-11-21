@@ -56,7 +56,7 @@ public class LiquidGlassWidget extends ClickableWidget {
 //#else
     public void renderWidget(DrawContext context, int mouseX, int mouseY, float delta) {
 //#endif
-        ReGlassApi.create(context).fromWidget(this).cornerRadius(cornerRadiusPx).style(this.style).render();
+        ReGlassApi.create(context).fromWidget(this).cornerRadius(cornerRadiusPx).hover(this.isHovered() ? 1f : 0f).style(this.style).render();
         LiquidGlassUniforms.get().tryApplyBlur(context);
     }
 

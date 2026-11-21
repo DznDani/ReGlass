@@ -4,6 +4,7 @@ import java.util.HashSet;
 import java.util.Set;
 import org.joml.Vector2f;
 import restudio.reglass.client.api.model.RimLight;
+import restudio.reglass.client.runtime.HoverCurve;
 
 public class ReGlassConfig {
     public static final ReGlassConfig INSTANCE = new ReGlassConfig();
@@ -47,6 +48,11 @@ public class ReGlassConfig {
     public float pixelatedGridSize = 8.0f;
 
     public float hoverScalePx = 1.53f;
+    public HoverCurve hoverInCurve = HoverCurve.CLASSIC;
+    public HoverCurve hoverOutCurve = HoverCurve.CLASSIC;
+    public float hoverInDurationSec = 0.48f;
+    public float hoverOutDurationSec = 0.48f;
+    public float hoverBounce = 0.25f;
     public float focusScalePx = 2.5f;
     public float focusBorderWidthPx = 2.04f;
     public float focusBorderIntensity = 0.75f;

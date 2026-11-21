@@ -8,6 +8,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import net.fabricmc.loader.api.FabricLoader;
 import restudio.reglass.client.api.ReGlassConfig;
+import restudio.reglass.client.runtime.HoverCurve;
 
 public final class ReGlassSettingsIO {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -84,6 +85,11 @@ public final class ReGlassSettingsIO {
         d.pixelatedGridSize = c.pixelatedGridSize;
 
         d.hoverScalePx = c.hoverScalePx;
+        d.hoverInCurve = (c.hoverInCurve != null ? c.hoverInCurve : HoverCurve.CLASSIC).name();
+        d.hoverOutCurve = (c.hoverOutCurve != null ? c.hoverOutCurve : HoverCurve.CLASSIC).name();
+        d.hoverInDurationSec = c.hoverInDurationSec;
+        d.hoverOutDurationSec = c.hoverOutDurationSec;
+        d.hoverBounce = c.hoverBounce;
         d.focusScalePx = c.focusScalePx;
         d.focusBorderWidthPx = c.focusBorderWidthPx;
         d.focusBorderIntensity = c.focusBorderIntensity;
@@ -132,7 +138,12 @@ public final class ReGlassSettingsIO {
 
         c.pixelatedGridSize = d.pixelatedGridSize;
 
-        c.hoverScalePx = d.hoverScalePx;
+        c.hoverScalePx = Float.isNaN(d.hoverScalePx) ? 1.53f : Math.max(0f, Math.min(100f, d.hoverScalePx));
+        c.hoverInCurve = HoverCurve.fromId(d.hoverInCurve, HoverCurve.CLASSIC);
+        c.hoverOutCurve = HoverCurve.fromId(d.hoverOutCurve, HoverCurve.CLASSIC);
+        c.hoverInDurationSec = Float.isNaN(d.hoverInDurationSec) ? 0.48f : Math.max(0f, Math.min(2f, d.hoverInDurationSec));
+        c.hoverOutDurationSec = Float.isNaN(d.hoverOutDurationSec) ? 0.48f : Math.max(0f, Math.min(2f, d.hoverOutDurationSec));
+        c.hoverBounce = Float.isNaN(d.hoverBounce) ? 0.25f : Math.max(0f, Math.min(0.75f, d.hoverBounce));
         c.focusScalePx = d.focusScalePx;
         c.focusBorderWidthPx = d.focusBorderWidthPx;
         c.focusBorderIntensity = d.focusBorderIntensity;
@@ -180,6 +191,11 @@ public final class ReGlassSettingsIO {
         public float pixelatedGridSize = 8.0f;
 
         public float hoverScalePx = 1.53f;
+        public String hoverInCurve = "CLASSIC";
+        public String hoverOutCurve = "CLASSIC";
+        public float hoverInDurationSec = 0.48f;
+        public float hoverOutDurationSec = 0.48f;
+        public float hoverBounce = 0.25f;
         public float focusScalePx = 2.5f;
         public float focusBorderWidthPx = 2.04f;
         public float focusBorderIntensity = 0.75f;

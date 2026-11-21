@@ -34,6 +34,7 @@ import org.lwjgl.glfw.GLFW;
 import restudio.reglass.client.api.ReGlassConfig;
 import restudio.reglass.client.api.WidgetStyle;
 import restudio.reglass.client.gui.LiquidGlassGuiElementRenderState;
+import restudio.reglass.client.runtime.HoverAnimator;
 import restudio.reglass.client.runtime.ReGlassAnim;
 import restudio.reglass.client.runtime.GlassRenderBounds;
 import restudio.reglass.client.runtime.GlassRenderBounds.Bounds;
@@ -67,7 +68,7 @@ public final class LiquidGlassUniforms {
 //#endif
 
     private static final class FadeState {
-        float hover;
+        final HoverAnimator hover = new HoverAnimator();
         float focus;
     }
 
@@ -364,7 +365,7 @@ public final class LiquidGlassUniforms {
                 float height = (w.y2() - w.y1()) * scale;
                 // Smooth unions can extend by k/4 per operation; subtraction may extend by k.
                 float padding = (smoothMax[layer] + smoothSum[layer] * 0.25f + 0.011f) * fbH
-                        + Math.abs(ReGlassAnim.INSTANCE.hoverScalePx()) + Math.abs(ReGlassAnim.INSTANCE.focusScalePx());
+                        + Math.abs(ReGlassAnim.INSTANCE.hoverScalePx()) * 1.5f + Math.abs(ReGlassAnim.INSTANCE.focusScalePx());
                 Bounds scissor = null;
                 var sc = w.scissorArea();
                 if (sc != null) {
@@ -532,17 +533,17 @@ public final class LiquidGlassUniforms {
                     var w = renderWidgets.get(i);
                     long key = s.hasFadeKey() ? s.getFadeKey() : rectKey(w.x1(), w.y1(), w.x2(), w.y2());
                     FadeState fs = fades.computeIfAbsent(key, k -> new FadeState());
-                    fs.hover = smoothToward(fs.hover, Math.max(0f, Math.min(1f, w.hover())), dtSeconds, 0.12f);
+                    float hoverValue = fs.hover.step(Math.max(0f, Math.min(1f, w.hover())), dtSeconds, ReGlassConfig.INSTANCE);
                     float targetFocus = Math.max(0f, Math.min(1f, w.focus()));
                     float responseSpeed = Math.max(0.5f, ReGlassConfig.INSTANCE.focusBorderSpeed);
                     fs.focus = smoothToward(fs.focus, targetFocus, dtSeconds,
                             (targetFocus > fs.focus ? 0.06f : 0.18f) / responseSpeed);
 //#if MC >= 26
-                    b.putVec4((float) idx, fs.hover, fs.focus, (float) s.getLayer());
+                    b.putVec4((float) idx, hoverValue, fs.focus, (float) s.getLayer());
 //#else
                     double h = Math.sin(w.x1() * 12.9898 + w.y1() * 78.233 + i * 37.719);
                     float seed = (float) (h - Math.floor(h));
-                    b.putVec4((float) idx, fs.hover, fs.focus, seed);
+                    b.putVec4((float) idx, hoverValue, fs.focus, seed);
 //#endif
                 } else b.putVec4(0f, 0f, 0f, 0f);
             }
