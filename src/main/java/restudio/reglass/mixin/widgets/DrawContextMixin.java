@@ -39,24 +39,6 @@ public abstract class DrawContextMixin {
 
     @Unique
 //#if MC >= 26
-    private static final Identifier BUTTON_TEXTURE = Identifier.withDefaultNamespace("widget/button");
-//#else
-    private static final Identifier BUTTON_TEXTURE = Identifier.ofVanilla("widget/button");
-//#endif
-    @Unique
-//#if MC >= 26
-    private static final Identifier BUTTON_DISABLED_TEXTURE = Identifier.withDefaultNamespace("widget/button_disabled");
-//#else
-    private static final Identifier BUTTON_DISABLED_TEXTURE = Identifier.ofVanilla("widget/button_disabled");
-//#endif
-    @Unique
-//#if MC >= 26
-    private static final Identifier BUTTON_HIGHLIGHTED_TEXTURE = Identifier.withDefaultNamespace("widget/button_highlighted");
-//#else
-    private static final Identifier BUTTON_HIGHLIGHTED_TEXTURE = Identifier.ofVanilla("widget/button_highlighted");
-//#endif
-    @Unique
-//#if MC >= 26
     private static final Identifier VILLAGER_TRADE_ARROW_OUT_OF_STOCK = Identifier.withDefaultNamespace("container/villager/trade_arrow_out_of_stock");
 //#else
     private static final Identifier VILLAGER_TRADE_ARROW_OUT_OF_STOCK = Identifier.ofVanilla("container/villager/trade_arrow_out_of_stock");
@@ -85,34 +67,6 @@ public abstract class DrawContextMixin {
             at = @At("HEAD"), cancellable = true)
     private void onDrawTexture(RenderPipeline pipeline, Identifier sprite, int x, int y, int width, int height, int color, CallbackInfo ci) {
         if (reglass$handleContainerSprite(sprite, x, y, width, height)) {
-            ci.cancel();
-            return;
-        }
-
-        boolean isButtonTexture = sprite.getPath().equals(BUTTON_TEXTURE.getPath())
-                || sprite.getPath().equals(BUTTON_DISABLED_TEXTURE.getPath())
-                || sprite.getPath().equals(BUTTON_HIGHLIGHTED_TEXTURE.getPath());
-
-//#if MC >= 26
-        if (isButtonTexture && (ReGlassConfig.INSTANCE.features.enableRedesign && ReGlassConfig.INSTANCE.features.buttons)) {
-//#else
-        if (isButtonTexture && ReGlassConfig.INSTANCE.features.enableRedesign && ReGlassConfig.INSTANCE.features.buttons) {
-//#endif
-            boolean isHighlighted = sprite.getPath().equals(BUTTON_HIGHLIGHTED_TEXTURE.getPath());
-            boolean isDisabled = sprite.getPath().equals(BUTTON_DISABLED_TEXTURE.getPath());
-            boolean isTradeRowButton = ReGlassConfig.INSTANCE.features.containers && width >= 80 && width <= 100 && height == 20;
-            int glassY = isTradeRowButton ? y + 1 : y;
-            int glassHeight = isTradeRowButton ? height - 2 : height;
-//#if MC >= 26
-            ReGlassApi.create((GuiGraphicsExtractor)(Object) this)
-//#else
-            ReGlassApi.create((DrawContext)(Object) this)
-//#endif
-                    .position(x, glassY)
-                    .size(width, glassHeight)
-                    .hover(isHighlighted ? 1f : 0f)
-                    .style(WidgetStyle.create().tint(isDisabled ? 0xFF000000 : 0xFFFFFFFF, isDisabled ? 0.4f : 0f))
-                    .render();
             ci.cancel();
         }
     }

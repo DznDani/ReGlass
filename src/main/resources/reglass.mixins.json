@@ -68,6 +68,7 @@
     "client.StonecutterScreenMixin",
     "client.TitleScreenMixin",
     "logical.GameRendererMixin",
+    "widgets.ClickableWidgetMixin",
     "widgets.DrawContextMixin",
     "widgets.GuiRendererMixin",
     "widgets.PressableWidgetMixin"
