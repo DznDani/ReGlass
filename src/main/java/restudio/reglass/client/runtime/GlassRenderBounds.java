@@ -34,4 +34,12 @@ public final class GlassRenderBounds {
         // The shader shifts the evaluation point by the offset, so its footprint shifts oppositely.
         return shape(x - offsetX, y - offsetY, width, height, padding);
     }
+
+    public static Bounds glow(float x, float y, float width, float height,
+                              float spreadFb, float intensity, float visualDxFb, float visualDyFb) {
+        if (intensity <= SHADOW_CUTOFF || spreadFb <= 0.0001f) return new Bounds(0, 0, 0, 0);
+        float padding = (float) (Math.max(spreadFb, 0.0001f) * Math.log(Math.max(intensity, SHADOW_CUTOFF) / SHADOW_CUTOFF));
+        // Visual shift (+X right, +Y down) corresponds to (+visualDxFb, -visualDyFb) in GL bottom-up coords.
+        return shape(x + visualDxFb, y - visualDyFb, width, height, padding);
+    }
 }

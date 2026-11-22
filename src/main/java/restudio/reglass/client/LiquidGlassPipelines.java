@@ -73,6 +73,7 @@ public final class LiquidGlassPipelines {
                                     .withUniform("CustomUniforms", UniformType.UNIFORM_BUFFER)
                                     .withUniform("WidgetInfo", UniformType.UNIFORM_BUFFER)
                                     .withUniform("BgConfig", UniformType.UNIFORM_BUFFER)
+                                    .withUniform("StyleInfo", UniformType.UNIFORM_BUFFER)
 //#if MC >= 26.3
                                     .withUniform("Sampler0", UniformType.COMBINED_IMAGE_SAMPLER)
 //#else
@@ -116,6 +117,7 @@ public final class LiquidGlassPipelines {
                     .withUniform("CustomUniforms", UniformType.UNIFORM_BUFFER)
                     .withUniform("WidgetInfo", UniformType.UNIFORM_BUFFER)
                     .withUniform("BgConfig", UniformType.UNIFORM_BUFFER)
+                    .withUniform("StyleInfo", UniformType.UNIFORM_BUFFER)
                     .withSampler("Sampler0")
                     .withSampler("Sampler1")
                     .withSampler("Sampler2")

@@ -4,7 +4,10 @@ import java.util.HashSet;
 import java.util.Set;
 import org.joml.Vector2f;
 import restudio.reglass.client.api.model.RimLight;
+import restudio.reglass.client.runtime.GlowBlendMode;
 import restudio.reglass.client.runtime.HoverCurve;
+import restudio.reglass.client.runtime.SelectionShape;
+import restudio.reglass.client.runtime.XpBarStyle;
 
 public class ReGlassConfig {
     public static final ReGlassConfig INSTANCE = new ReGlassConfig();
@@ -58,7 +61,39 @@ public class ReGlassConfig {
     public float focusBorderIntensity = 0.75f;
     public float focusBorderSpeed = 1.6f;
 
+    public SelectionShape slotSelectionShape = SelectionShape.SQUIRCLE;
+    public SelectionShape hotbarSelectionShape = SelectionShape.CIRCLE;
+    public final XpBar xpBar = new XpBar();
+
     private ReGlassConfig() {}
+
+    public static class XpBar {
+        public XpBarStyle style = XpBarStyle.SMOOTH;
+        public int segments = 18;
+        public float segmentGap = 1.0f;
+        public boolean snapToSegments = false;
+
+        public float trackTintAlpha = 0.12f;
+        public float trackShadowIntensity = 0.35f;
+        public float trackShadowSpread = 3.0f;
+        public float layerDepthBlend = 0.7f;
+
+        public float glowIntensity = 1.0f;
+        public GlowBlendMode glowBlend = GlowBlendMode.LIGHT_TRANSMISSION;
+        public float glowSpread = 6.0f;
+        public float glowAngleDeg = 90.0f;
+        public float glowDistance = 1.5f;
+        public float glowCoreRatio = 0.45f;
+        public boolean glowColorCustom = false;
+        public float glowHue = 120.0f;
+
+        public float fillShadowIntensity = 0.55f;
+        public float fillShadowSpread = 2.5f;
+        public float fillShadowOffsetX = 0.0f;
+        public float fillShadowOffsetY = 1.0f;
+        public GlowBlendMode fillShadowBlend = GlowBlendMode.MULTIPLY;
+        public boolean fillShadowUseTint = true;
+    }
 
     public static class Features {
         public boolean enableRedesign = true;
@@ -66,6 +101,8 @@ public class ReGlassConfig {
         public boolean sliders = true;
         public boolean hotbar = true;
         public boolean containers = true;
+        public boolean slotSelection = true;
+        public boolean experienceBar = true;
         public boolean containerTextPanels = true;
         public boolean cancelScreenDarkening = true;
         public boolean pixelatedGrid = false;

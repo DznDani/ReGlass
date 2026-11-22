@@ -3,7 +3,9 @@ package restudio.reglass.client.screen.config;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.function.UnaryOperator;
 //#if MC >= 26
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
@@ -25,7 +27,11 @@ import restudio.reglass.client.LiquidGlassWidget;
 import restudio.reglass.client.api.ReGlassConfig;
 import restudio.reglass.client.api.WidgetStyle;
 import restudio.reglass.client.config.ReGlassSettingsIO;
+import restudio.reglass.client.runtime.GlowBlendMode;
 import restudio.reglass.client.runtime.HoverCurve;
+import restudio.reglass.client.runtime.SelectionShape;
+import restudio.reglass.client.runtime.XpBarGlassRenderer;
+import restudio.reglass.client.runtime.XpBarStyle;
 import restudio.reglass.client.ui.MappedSlider;
 
 public class ReGlassConfigScreen extends Screen {
@@ -33,6 +39,8 @@ public class ReGlassConfigScreen extends Screen {
     private final List<PositionedWidget> positionedWidgets = new ArrayList<>();
     private LiquidGlassWidget previewCircle;
     private LiquidGlassWidget previewRounded;
+    private int previewX;
+    private int previewY;
     private double scrollPosition;
     private int totalListHeight;
 
@@ -163,7 +171,118 @@ public class ReGlassConfigScreen extends Screen {
         }).dimensions(widgetX, y, widgetWidth, widgetHeight).build();
 //#endif
         addPositionedWidget(cancelDarkeningButton, y).active = cfg.features.enableRedesign;
+        y += widgetHeight + gap;
+
+//#if MC >= 26
+        Button slotSelectionButton = Button.builder(getFeatureText("Slot Selection", cfg.features.slotSelection), button -> {
+            cfg.features.slotSelection = !cfg.features.slotSelection;
+            button.setMessage(getFeatureText("Slot Selection", cfg.features.slotSelection));
+        }).bounds(widgetX, y, widgetWidth, widgetHeight).build();
+//#else
+        ButtonWidget slotSelectionButton = ButtonWidget.builder(getFeatureText("Slot Selection", cfg.features.slotSelection), button -> {
+            cfg.features.slotSelection = !cfg.features.slotSelection;
+            button.setMessage(getFeatureText("Slot Selection", cfg.features.slotSelection));
+        }).dimensions(widgetX, y, widgetWidth, widgetHeight).build();
+//#endif
+        addPositionedWidget(slotSelectionButton, y).active = cfg.features.enableRedesign && cfg.features.containers;
+        y += widgetHeight + gap;
+
+        addShapeSelectorRow("Slot Shape", () -> cfg.slotSelectionShape, s -> cfg.slotSelectionShape = s, widgetX, y, widgetWidth, widgetHeight, cfg.features.enableRedesign && cfg.features.containers);
+        y += widgetHeight + gap;
+
+        addShapeSelectorRow("Hotbar Shape", () -> cfg.hotbarSelectionShape, s -> cfg.hotbarSelectionShape = s, widgetX, y, widgetWidth, widgetHeight, cfg.features.enableRedesign && cfg.features.hotbar);
         y += widgetHeight + gap * 2;
+
+        addTitle("Experience Bar", widgetX, y, widgetWidth);
+        y += widgetHeight;
+
+        ReGlassConfig.XpBar xp = cfg.xpBar;
+//#if MC >= 26
+        List<AbstractWidget> xpAlwaysActive = new ArrayList<>();
+        List<AbstractWidget> xpSegmentedActive = new ArrayList<>();
+        List<AbstractWidget> xpCustomHueActive = new ArrayList<>();
+//#else
+        List<ClickableWidget> xpAlwaysActive = new ArrayList<>();
+        List<ClickableWidget> xpSegmentedActive = new ArrayList<>();
+        List<ClickableWidget> xpCustomHueActive = new ArrayList<>();
+//#endif
+
+        Runnable refreshXpActive = () -> {
+            boolean base = cfg.features.enableRedesign && cfg.features.experienceBar;
+            boolean segmented = base && xp.style == XpBarStyle.SEGMENTED;
+            boolean customHue = base && xp.glowColorCustom;
+            for (var w : xpAlwaysActive) w.active = base;
+            for (var w : xpSegmentedActive) w.active = segmented;
+            for (var w : xpCustomHueActive) w.active = customHue;
+        };
+
+        addLabelToggleRow(() -> "Experience Bar: " + (cfg.features.experienceBar ? "ON" : "OFF"),
+                () -> { cfg.features.experienceBar = !cfg.features.experienceBar; refreshXpActive.run(); },
+                widgetX, y, widgetWidth, widgetHeight, cfg.features.enableRedesign);
+        y += widgetHeight + gap;
+
+        xpAlwaysActive.addAll(addEnumSelectorRow("Bar Style", () -> xp.style, s -> xp.style = s,
+                XpBarStyle::next, XpBarStyle::previous, XpBarStyle::displayName, refreshXpActive,
+                widgetX, y, widgetWidth, widgetHeight, true));
+        y += widgetHeight + gap;
+
+        xpSegmentedActive.add(addIntSliderRow("Segments", 2, 40, xp.segments, v -> xp.segments = v, widgetX, y, widgetWidth, widgetHeight));
+        y += widgetHeight + gap;
+        xpSegmentedActive.add(addFloatSliderRow("Segment Gap", 0f, 3f, xp.segmentGap, v -> xp.segmentGap = v, widgetX, y, widgetWidth, widgetHeight));
+        y += widgetHeight + gap;
+        xpSegmentedActive.add(addLabelToggleRow(() -> "Snap to Segments: " + (xp.snapToSegments ? "ON" : "OFF"),
+                () -> xp.snapToSegments = !xp.snapToSegments,
+                widgetX, y, widgetWidth, widgetHeight, true));
+        y += widgetHeight + gap;
+
+        xpAlwaysActive.add(addFloatSliderRow("Track Opacity", 0f, 0.6f, xp.trackTintAlpha, v -> xp.trackTintAlpha = v, widgetX, y, widgetWidth, widgetHeight));
+        y += widgetHeight + gap;
+        xpAlwaysActive.add(addFloatSliderRow("Layer Depth Blend", 0f, 1f, xp.layerDepthBlend, v -> xp.layerDepthBlend = v, widgetX, y, widgetWidth, widgetHeight));
+        y += widgetHeight + gap;
+
+        xpAlwaysActive.add(addFloatSliderRow("Glow Intensity", 0f, 2f, xp.glowIntensity, v -> xp.glowIntensity = v, widgetX, y, widgetWidth, widgetHeight));
+        y += widgetHeight + gap;
+        xpAlwaysActive.addAll(addEnumSelectorRow("Glow Blend", () -> xp.glowBlend, b -> xp.glowBlend = b,
+                GlowBlendMode::next, GlowBlendMode::previous, GlowBlendMode::displayName, null,
+                widgetX, y, widgetWidth, widgetHeight, true));
+        y += widgetHeight + gap;
+        xpAlwaysActive.add(addFloatSliderRow("Glow Spread", 0f, 20f, xp.glowSpread, v -> xp.glowSpread = v, widgetX, y, widgetWidth, widgetHeight));
+        y += widgetHeight + gap;
+        xpAlwaysActive.add(addIntSliderRow("Glow Direction (deg)", 0, 360, Math.round(xp.glowAngleDeg), v -> xp.glowAngleDeg = v.floatValue(), widgetX, y, widgetWidth, widgetHeight));
+        y += widgetHeight + gap;
+        xpAlwaysActive.add(addFloatSliderRow("Glow Distance", 0f, 10f, xp.glowDistance, v -> xp.glowDistance = v, widgetX, y, widgetWidth, widgetHeight));
+        y += widgetHeight + gap;
+        xpAlwaysActive.add(addFloatSliderRow("Glow Core Ratio", 0f, 1f, xp.glowCoreRatio, v -> xp.glowCoreRatio = v, widgetX, y, widgetWidth, widgetHeight));
+        y += widgetHeight + gap;
+        xpAlwaysActive.add(addLabelToggleRow(() -> "Glow Color: " + (xp.glowColorCustom ? "Custom" : "Match Tint"),
+                () -> { xp.glowColorCustom = !xp.glowColorCustom; refreshXpActive.run(); },
+                widgetX, y, widgetWidth, widgetHeight, true));
+        y += widgetHeight + gap;
+        xpCustomHueActive.add(addIntSliderRow("Glow Hue (deg)", 0, 360, Math.round(xp.glowHue), v -> xp.glowHue = v.floatValue(), widgetX, y, widgetWidth, widgetHeight));
+        y += widgetHeight + gap;
+
+        xpAlwaysActive.add(addFloatSliderRow("Fill Shadow Intensity", 0f, 1.5f, xp.fillShadowIntensity, v -> xp.fillShadowIntensity = v, widgetX, y, widgetWidth, widgetHeight));
+        y += widgetHeight + gap;
+        xpAlwaysActive.add(addFloatSliderRow("Fill Shadow Spread", 0f, 12f, xp.fillShadowSpread, v -> xp.fillShadowSpread = v, widgetX, y, widgetWidth, widgetHeight));
+        y += widgetHeight + gap;
+        xpAlwaysActive.add(addFloatSliderRow("Fill Shadow Offset X", -4f, 4f, xp.fillShadowOffsetX, v -> xp.fillShadowOffsetX = v, widgetX, y, widgetWidth, widgetHeight));
+        y += widgetHeight + gap;
+        xpAlwaysActive.add(addFloatSliderRow("Fill Shadow Offset Y", -4f, 4f, xp.fillShadowOffsetY, v -> xp.fillShadowOffsetY = v, widgetX, y, widgetWidth, widgetHeight));
+        y += widgetHeight + gap;
+        xpAlwaysActive.addAll(addEnumSelectorRow("Fill Shadow Blend", () -> xp.fillShadowBlend, b -> xp.fillShadowBlend = b,
+                GlowBlendMode::next, GlowBlendMode::previous, GlowBlendMode::displayName, null,
+                widgetX, y, widgetWidth, widgetHeight, true));
+        y += widgetHeight + gap;
+        xpAlwaysActive.add(addLabelToggleRow(() -> "Fill Shadow Color: " + (xp.fillShadowUseTint ? "Tinted" : "Black"),
+                () -> xp.fillShadowUseTint = !xp.fillShadowUseTint,
+                widgetX, y, widgetWidth, widgetHeight, true));
+        y += widgetHeight + gap;
+
+        xpAlwaysActive.add(addFloatSliderRow("Track Shadow Intensity", 0f, 1.5f, xp.trackShadowIntensity, v -> xp.trackShadowIntensity = v, widgetX, y, widgetWidth, widgetHeight));
+        y += widgetHeight + gap;
+        xpAlwaysActive.add(addFloatSliderRow("Track Shadow Spread", 0f, 12f, xp.trackShadowSpread, v -> xp.trackShadowSpread = v, widgetX, y, widgetWidth, widgetHeight));
+        y += widgetHeight + gap * 2;
+        refreshXpActive.run();
 
         addTitle("Appearance", widgetX, y, widgetWidth);
         y += widgetHeight;
@@ -385,8 +504,8 @@ public class ReGlassConfigScreen extends Screen {
         addDrawableChild(ButtonWidget.builder(Text.translatable("gui.done"), b -> close()).dimensions(this.width / 2 + 2, this.height - 28, 98, 20).build());
 //#endif
 
-        int previewX = this.width / 2 + 20;
-        int previewY = this.height / 2 - 50;
+        this.previewX = this.width / 2 + 20;
+        this.previewY = this.height / 2 - 50;
 
         WidgetStyle s1 = WidgetStyle.create().tint(0xFFFFFF, Math.min(1f, Math.max(0f, cfg.defaultTintAlpha))).blurRadius(cfg.defaultBlurRadius)
                 .shadow(cfg.defaultShadowExpand, cfg.defaultShadowFactor, cfg.defaultShadowOffsetX, cfg.defaultShadowOffsetY)
@@ -396,15 +515,17 @@ public class ReGlassConfigScreen extends Screen {
                 .glareRange(cfg.defaultGlareRange).glareHardness(cfg.defaultGlareHardness).glareConvergence(cfg.defaultGlareConvergence)
 //#if MC >= 26
                 .glareOppositeFactor(cfg.defaultGlareOppositeFactor).glareFactor(cfg.defaultGlareFactor).glareAngleRad(cfg.defaultGlareAngleRad)
+                .cornerExponent(cfg.slotSelectionShape.cornerExponent())
                 .layer(1);
 //#else
-                .glareOppositeFactor(cfg.defaultGlareOppositeFactor).glareFactor(cfg.defaultGlareFactor).glareAngleRad(cfg.defaultGlareAngleRad);
+                .glareOppositeFactor(cfg.defaultGlareOppositeFactor).glareFactor(cfg.defaultGlareFactor).glareAngleRad(cfg.defaultGlareAngleRad)
+                .cornerExponent(cfg.slotSelectionShape.cornerExponent());
 //#endif
 
 //#if MC >= 26
-        previewCircle = addRenderableWidget(new LiquidGlassWidget(previewX + 40, previewY, 100, 100, s1).setCornerRadiusPx(50f));
+        previewCircle = addRenderableWidget(new LiquidGlassWidget(this.previewX + 40, this.previewY, 100, 100, s1).setCornerRadiusPx(50f));
 //#else
-        previewCircle = addDrawableChild(new LiquidGlassWidget(previewX, previewY, 100, 100, s1).setCornerRadiusPx(50f));
+        previewCircle = addDrawableChild(new LiquidGlassWidget(this.previewX, this.previewY, 100, 100, s1).setCornerRadiusPx(50f));
 //#endif
 
         WidgetStyle s2 = WidgetStyle.create().tint(cfg.defaultTintColor, cfg.defaultTintAlpha).blurRadius(cfg.defaultBlurRadius)
@@ -417,9 +538,9 @@ public class ReGlassConfigScreen extends Screen {
 //#endif
 
 //#if MC >= 26
-        previewRounded = addRenderableWidget(new LiquidGlassWidget(previewX + 20, previewY + 120, 140, 60, s2).setCornerRadiusPx(16f));
+        previewRounded = addRenderableWidget(new LiquidGlassWidget(this.previewX + 20, this.previewY + 120, 140, 60, s2).setCornerRadiusPx(16f));
 //#else
-        previewRounded = addDrawableChild(new LiquidGlassWidget(previewX + 110, previewY + 20, 140, 60, s2).setCornerRadiusPx(16f));
+        previewRounded = addDrawableChild(new LiquidGlassWidget(this.previewX + 110, this.previewY + 20, 140, 60, s2).setCornerRadiusPx(16f));
 //#endif
     }
 
@@ -476,42 +597,127 @@ public class ReGlassConfigScreen extends Screen {
             int height,
             boolean active
     ) {
+        addEnumSelectorRow(label, getter, setter, HoverCurve::next, HoverCurve::previous, HoverCurve::displayName, null, x, y, width, height, active);
+    }
+
+    private void addShapeSelectorRow(
+            String label,
+            Supplier<SelectionShape> getter,
+            Consumer<SelectionShape> setter,
+            int x,
+            int y,
+            int width,
+            int height,
+            boolean active
+    ) {
+        addEnumSelectorRow(label, getter, setter, SelectionShape::next, SelectionShape::previous, SelectionShape::displayName, null, x, y, width, height, active);
+    }
+
+//#if MC >= 26
+    private <T> List<AbstractWidget> addEnumSelectorRow(
+//#else
+    private <T> List<ClickableWidget> addEnumSelectorRow(
+//#endif
+            String label,
+            Supplier<T> getter,
+            Consumer<T> setter,
+            UnaryOperator<T> nextFn,
+            UnaryOperator<T> prevFn,
+            Function<T, String> nameFn,
+            Runnable onChange,
+            int x,
+            int y,
+            int width,
+            int height,
+            boolean active
+    ) {
         int arrowWidth = 20;
         int centerWidth = Math.max(40, width - arrowWidth * 2 - 4);
         int centerX = x + arrowWidth + 2;
         int rightX = x + width - arrowWidth;
 
 //#if MC >= 26
-        Button centerBtn = Button.builder(Component.literal(label + ": " + getter.get().displayName()), button -> {
-            setter.accept(getter.get().next());
-            button.setMessage(Component.literal(label + ": " + getter.get().displayName()));
+        Button centerBtn = Button.builder(Component.literal(label + ": " + nameFn.apply(getter.get())), button -> {
+            setter.accept(nextFn.apply(getter.get()));
+            button.setMessage(Component.literal(label + ": " + nameFn.apply(getter.get())));
+            if (onChange != null) onChange.run();
         }).bounds(centerX, y, centerWidth, height).build();
         Button prevBtn = Button.builder(Component.literal("<"), button -> {
-            setter.accept(getter.get().previous());
-            centerBtn.setMessage(Component.literal(label + ": " + getter.get().displayName()));
+            setter.accept(prevFn.apply(getter.get()));
+            centerBtn.setMessage(Component.literal(label + ": " + nameFn.apply(getter.get())));
+            if (onChange != null) onChange.run();
         }).bounds(x, y, arrowWidth, height).build();
         Button nextBtn = Button.builder(Component.literal(">"), button -> {
-            setter.accept(getter.get().next());
-            centerBtn.setMessage(Component.literal(label + ": " + getter.get().displayName()));
+            setter.accept(nextFn.apply(getter.get()));
+            centerBtn.setMessage(Component.literal(label + ": " + nameFn.apply(getter.get())));
+            if (onChange != null) onChange.run();
         }).bounds(rightX, y, arrowWidth, height).build();
 //#else
-        ButtonWidget centerBtn = ButtonWidget.builder(Text.literal(label + ": " + getter.get().displayName()), button -> {
-            setter.accept(getter.get().next());
-            button.setMessage(Text.literal(label + ": " + getter.get().displayName()));
+        ButtonWidget centerBtn = ButtonWidget.builder(Text.literal(label + ": " + nameFn.apply(getter.get())), button -> {
+            setter.accept(nextFn.apply(getter.get()));
+            button.setMessage(Text.literal(label + ": " + nameFn.apply(getter.get())));
+            if (onChange != null) onChange.run();
         }).dimensions(centerX, y, centerWidth, height).build();
         ButtonWidget prevBtn = ButtonWidget.builder(Text.literal("<"), button -> {
-            setter.accept(getter.get().previous());
-            centerBtn.setMessage(Text.literal(label + ": " + getter.get().displayName()));
+            setter.accept(prevFn.apply(getter.get()));
+            centerBtn.setMessage(Text.literal(label + ": " + nameFn.apply(getter.get())));
+            if (onChange != null) onChange.run();
         }).dimensions(x, y, arrowWidth, height).build();
         ButtonWidget nextBtn = ButtonWidget.builder(Text.literal(">"), button -> {
-            setter.accept(getter.get().next());
-            centerBtn.setMessage(Text.literal(label + ": " + getter.get().displayName()));
+            setter.accept(nextFn.apply(getter.get()));
+            centerBtn.setMessage(Text.literal(label + ": " + nameFn.apply(getter.get())));
+            if (onChange != null) onChange.run();
         }).dimensions(rightX, y, arrowWidth, height).build();
 //#endif
 
         addPositionedWidget(prevBtn, y).active = active;
         addPositionedWidget(centerBtn, y).active = active;
         addPositionedWidget(nextBtn, y).active = active;
+        return List.of(prevBtn, centerBtn, nextBtn);
+    }
+
+//#if MC >= 26
+    private Button addLabelToggleRow(
+//#else
+    private ButtonWidget addLabelToggleRow(
+//#endif
+            Supplier<String> labelSupplier,
+            Runnable onToggle,
+            int x,
+            int y,
+            int width,
+            int height,
+            boolean active
+    ) {
+//#if MC >= 26
+        Button btn = Button.builder(Component.literal(labelSupplier.get()), button -> {
+            onToggle.run();
+            button.setMessage(Component.literal(labelSupplier.get()));
+        }).bounds(x, y, width, height).build();
+//#else
+        ButtonWidget btn = ButtonWidget.builder(Text.literal(labelSupplier.get()), button -> {
+            onToggle.run();
+            button.setMessage(Text.literal(labelSupplier.get()));
+        }).dimensions(x, y, width, height).build();
+//#endif
+        addPositionedWidget(btn, y).active = active;
+        return btn;
+    }
+
+    private MappedSlider addFloatSliderRow(String label, float min, float max, float init, Consumer<Float> setter, int x, int y, int width, int height) {
+//#if MC >= 26
+        return addSlider(MappedSlider.floatSlider(x, y, width, height, Component.literal(label), min, max, init, v -> setter.accept(v.floatValue())), y);
+//#else
+        return addSlider(MappedSlider.floatSlider(x, y, width, height, Text.literal(label), min, max, init, v -> setter.accept(v.floatValue())), y);
+//#endif
+    }
+
+    private MappedSlider addIntSliderRow(String label, int min, int max, int init, Consumer<Integer> setter, int x, int y, int width, int height) {
+//#if MC >= 26
+        return addSlider(MappedSlider.intSlider(x, y, width, height, Component.literal(label), min, max, init, setter), y);
+//#else
+        return addSlider(MappedSlider.intSlider(x, y, width, height, Text.literal(label), min, max, init, setter), y);
+//#endif
     }
 
     @Override
@@ -522,6 +728,11 @@ public class ReGlassConfigScreen extends Screen {
         this.renderBackground(context, mouseX, mouseY, delta);
 
 //#endif
+        ReGlassConfig cfg = ReGlassConfig.INSTANCE;
+        if (this.previewCircle != null) {
+            this.previewCircle.style.cornerExponent(cfg.slotSelectionShape.cornerExponent());
+        }
+
         int listTop = 32;
         int listBottom = this.height - 32;
 
@@ -539,6 +750,15 @@ public class ReGlassConfigScreen extends Screen {
 //#else
         super.render(context, mouseX, mouseY, delta);
 //#endif
+
+        if (cfg.features.enableRedesign) {
+            int xpWidth = Math.min(182, Math.max(80, this.width - this.previewX - 20));
+            int xpX = this.previewX;
+            int xpY = Math.max(38, this.previewY - 22);
+            double phase = (System.currentTimeMillis() % 6000L) / 6000.0;
+            double previewProgress = 0.15 + 0.80 * (0.5 - 0.5 * Math.cos(phase * Math.PI * 2.0));
+            XpBarGlassRenderer.render(context, xpX, xpY, xpWidth, previewProgress, 0.0);
+        }
 
 //#if MC >= 26
         context.centeredText(this.font, Component.literal("ReGlass Config (Scrollable)"), this.width / 2, 15, 0xFFFFFFFF);

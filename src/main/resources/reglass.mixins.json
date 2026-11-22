@@ -50,6 +50,7 @@
     "client.BrewingStandScreenMixin",
     "client.CreativeModeInventoryScreenMixin",
     "client.EnchantmentScreenMixin",
+    "client.ExperienceBarMixin",
 //#if MC >= 26.3
     "client.GuiGraphicsExtractorMixin",
 //#endif

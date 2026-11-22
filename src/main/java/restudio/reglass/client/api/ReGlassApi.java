@@ -54,9 +54,7 @@ public final class ReGlassApi {
         private WidgetStyle style = new WidgetStyle();
         private float hoverAmount = 0f;
         private float focusAmount = 0f;
-//#if MC >= 26
         private boolean screenSpace = false;
-//#endif
 
 //#if MC >= 26
         private Builder(GuiGraphicsExtractor context) {
@@ -128,13 +126,11 @@ public final class ReGlassApi {
             return this.focus(amount);
         }
 
-//#if MC >= 26
         public Builder screenSpace() {
             this.screenSpace = true;
             return this;
         }
 
-//#endif
         public void render() {
             float finalCornerRadius = this.cornerRadius < 0 ? 0.5f * Math.min(this.width, this.height) : this.cornerRadius;
 //#if MC >= 26
@@ -143,7 +139,7 @@ public final class ReGlassApi {
             LiquidGlassUniforms.get().tryApplyBlur(context);
             LiquidGlassGuiElementRenderState element = new LiquidGlassGuiElementRenderState(
 //#else
-            Matrix3x2f pose = new Matrix3x2f(context.getMatrices());
+            Matrix3x2f pose = this.screenSpace ? new Matrix3x2f() : new Matrix3x2f(context.getMatrices());
             ScreenRect scissorRect = ((DrawContextAccessor) context).getScissorStack().peekLast();
             context.state.addSpecialElement(new LiquidGlassGuiElementRenderState(
 //#endif

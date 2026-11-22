@@ -8,7 +8,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import net.fabricmc.loader.api.FabricLoader;
 import restudio.reglass.client.api.ReGlassConfig;
+import restudio.reglass.client.runtime.GlowBlendMode;
 import restudio.reglass.client.runtime.HoverCurve;
+import restudio.reglass.client.runtime.SelectionShape;
+import restudio.reglass.client.runtime.XpBarStyle;
 
 public final class ReGlassSettingsIO {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -52,6 +55,8 @@ public final class ReGlassSettingsIO {
         d.features_sliders = c.features.sliders;
         d.features_hotbar = c.features.hotbar;
         d.features_containers = c.features.containers;
+        d.features_slotSelection = c.features.slotSelection;
+        d.features_experienceBar = c.features.experienceBar;
         d.containerTextPanels = c.features.containerTextPanels;
         d.features_cancelScreenDarkening = c.features.cancelScreenDarkening;
         d.features_pixelatedGrid = c.features.pixelatedGrid;
@@ -94,8 +99,37 @@ public final class ReGlassSettingsIO {
         d.focusBorderWidthPx = c.focusBorderWidthPx;
         d.focusBorderIntensity = c.focusBorderIntensity;
         d.focusBorderSpeed = c.focusBorderSpeed;
+        d.slotSelectionShape = (c.slotSelectionShape != null ? c.slotSelectionShape : SelectionShape.SQUIRCLE).name();
+        d.hotbarSelectionShape = (c.hotbarSelectionShape != null ? c.hotbarSelectionShape : SelectionShape.CIRCLE).name();
+        d.xpBarGlowIntensity = c.xpBar.glowIntensity;
+        d.xp_style = (c.xpBar.style != null ? c.xpBar.style : XpBarStyle.SMOOTH).name();
+        d.xp_segments = c.xpBar.segments;
+        d.xp_segmentGap = c.xpBar.segmentGap;
+        d.xp_snapToSegments = c.xpBar.snapToSegments;
+        d.xp_trackTintAlpha = c.xpBar.trackTintAlpha;
+        d.xp_trackShadowIntensity = c.xpBar.trackShadowIntensity;
+        d.xp_trackShadowSpread = c.xpBar.trackShadowSpread;
+        d.xp_layerDepthBlend = c.xpBar.layerDepthBlend;
+        d.xp_glowIntensity = c.xpBar.glowIntensity;
+        d.xp_glowBlend = (c.xpBar.glowBlend != null ? c.xpBar.glowBlend : GlowBlendMode.LIGHT_TRANSMISSION).name();
+        d.xp_glowSpread = c.xpBar.glowSpread;
+        d.xp_glowAngleDeg = c.xpBar.glowAngleDeg;
+        d.xp_glowDistance = c.xpBar.glowDistance;
+        d.xp_glowCoreRatio = c.xpBar.glowCoreRatio;
+        d.xp_glowColorCustom = c.xpBar.glowColorCustom;
+        d.xp_glowHue = c.xpBar.glowHue;
+        d.xp_fillShadowIntensity = c.xpBar.fillShadowIntensity;
+        d.xp_fillShadowSpread = c.xpBar.fillShadowSpread;
+        d.xp_fillShadowOffsetX = c.xpBar.fillShadowOffsetX;
+        d.xp_fillShadowOffsetY = c.xpBar.fillShadowOffsetY;
+        d.xp_fillShadowBlend = (c.xpBar.fillShadowBlend != null ? c.xpBar.fillShadowBlend : GlowBlendMode.MULTIPLY).name();
+        d.xp_fillShadowUseTint = c.xpBar.fillShadowUseTint;
 
         return d;
+    }
+
+    private static float clampFloat(float value, float min, float max, float fallback) {
+        return Float.isNaN(value) || Float.isInfinite(value) ? fallback : Math.max(min, Math.min(max, value));
     }
 
     public static void apply(Data d) {
@@ -106,6 +140,8 @@ public final class ReGlassSettingsIO {
         c.features.sliders = d.features_sliders;
         c.features.hotbar = d.features_hotbar;
         c.features.containers = d.features_containers;
+        c.features.slotSelection = d.features_slotSelection;
+        c.features.experienceBar = d.features_experienceBar;
         c.features.containerTextPanels = d.containerTextPanels;
         c.features.cancelScreenDarkening = d.features_cancelScreenDarkening;
         c.features.pixelatedGrid = d.features_pixelatedGrid;
@@ -148,6 +184,32 @@ public final class ReGlassSettingsIO {
         c.focusBorderWidthPx = d.focusBorderWidthPx;
         c.focusBorderIntensity = d.focusBorderIntensity;
         c.focusBorderSpeed = d.focusBorderSpeed;
+        c.slotSelectionShape = SelectionShape.fromId(d.slotSelectionShape, SelectionShape.SQUIRCLE);
+        c.hotbarSelectionShape = SelectionShape.fromId(d.hotbarSelectionShape, SelectionShape.CIRCLE);
+
+        float rawGlow = d.xp_glowIntensity != null ? d.xp_glowIntensity : d.xpBarGlowIntensity;
+        c.xpBar.style = XpBarStyle.fromId(d.xp_style, XpBarStyle.SMOOTH);
+        c.xpBar.segments = Math.max(2, Math.min(40, d.xp_segments));
+        c.xpBar.segmentGap = clampFloat(d.xp_segmentGap, 0f, 3f, 1.0f);
+        c.xpBar.snapToSegments = d.xp_snapToSegments;
+        c.xpBar.trackTintAlpha = clampFloat(d.xp_trackTintAlpha, 0f, 0.6f, 0.12f);
+        c.xpBar.trackShadowIntensity = clampFloat(d.xp_trackShadowIntensity, 0f, 1.5f, 0.35f);
+        c.xpBar.trackShadowSpread = clampFloat(d.xp_trackShadowSpread, 0f, 12f, 3.0f);
+        c.xpBar.layerDepthBlend = clampFloat(d.xp_layerDepthBlend, 0f, 1f, 0.7f);
+        c.xpBar.glowIntensity = clampFloat(rawGlow, 0f, 2f, 1.0f);
+        c.xpBar.glowBlend = GlowBlendMode.fromId(d.xp_glowBlend, GlowBlendMode.LIGHT_TRANSMISSION);
+        c.xpBar.glowSpread = clampFloat(d.xp_glowSpread, 0f, 20f, 6.0f);
+        c.xpBar.glowAngleDeg = clampFloat(d.xp_glowAngleDeg, 0f, 360f, 90.0f);
+        c.xpBar.glowDistance = clampFloat(d.xp_glowDistance, 0f, 10f, 1.5f);
+        c.xpBar.glowCoreRatio = clampFloat(d.xp_glowCoreRatio, 0f, 1f, 0.45f);
+        c.xpBar.glowColorCustom = d.xp_glowColorCustom;
+        c.xpBar.glowHue = clampFloat(d.xp_glowHue, 0f, 360f, 120.0f);
+        c.xpBar.fillShadowIntensity = clampFloat(d.xp_fillShadowIntensity, 0f, 1.5f, 0.55f);
+        c.xpBar.fillShadowSpread = clampFloat(d.xp_fillShadowSpread, 0f, 12f, 2.5f);
+        c.xpBar.fillShadowOffsetX = clampFloat(d.xp_fillShadowOffsetX, -4f, 4f, 0.0f);
+        c.xpBar.fillShadowOffsetY = clampFloat(d.xp_fillShadowOffsetY, -4f, 4f, 1.0f);
+        c.xpBar.fillShadowBlend = GlowBlendMode.fromId(d.xp_fillShadowBlend, GlowBlendMode.MULTIPLY);
+        c.xpBar.fillShadowUseTint = d.xp_fillShadowUseTint;
     }
 
     public static class Data {
@@ -156,6 +218,8 @@ public final class ReGlassSettingsIO {
         public boolean features_sliders = true;
         public boolean features_hotbar = true;
         public boolean features_containers = true;
+        public boolean features_slotSelection = true;
+        public boolean features_experienceBar = true;
         @Deprecated
         public String containerStyle = "BATCH";
         public boolean containerTextPanels = true;
@@ -200,5 +264,33 @@ public final class ReGlassSettingsIO {
         public float focusBorderWidthPx = 2.04f;
         public float focusBorderIntensity = 0.75f;
         public float focusBorderSpeed = 1.6f;
+
+        public String slotSelectionShape = "SQUIRCLE";
+        public String hotbarSelectionShape = "CIRCLE";
+        @Deprecated
+        public float xpBarGlowIntensity = 1.0f;
+
+        public String xp_style = "SMOOTH";
+        public int xp_segments = 18;
+        public float xp_segmentGap = 1.0f;
+        public boolean xp_snapToSegments = false;
+        public float xp_trackTintAlpha = 0.12f;
+        public float xp_trackShadowIntensity = 0.35f;
+        public float xp_trackShadowSpread = 3.0f;
+        public float xp_layerDepthBlend = 0.7f;
+        public Float xp_glowIntensity = null;
+        public String xp_glowBlend = "LIGHT_TRANSMISSION";
+        public float xp_glowSpread = 6.0f;
+        public float xp_glowAngleDeg = 90.0f;
+        public float xp_glowDistance = 1.5f;
+        public float xp_glowCoreRatio = 0.45f;
+        public boolean xp_glowColorCustom = false;
+        public float xp_glowHue = 120.0f;
+        public float xp_fillShadowIntensity = 0.55f;
+        public float xp_fillShadowSpread = 2.5f;
+        public float xp_fillShadowOffsetX = 0.0f;
+        public float xp_fillShadowOffsetY = 1.0f;
+        public String xp_fillShadowBlend = "MULTIPLY";
+        public boolean xp_fillShadowUseTint = true;
     }
 }

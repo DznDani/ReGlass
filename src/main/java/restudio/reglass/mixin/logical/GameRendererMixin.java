@@ -159,6 +159,7 @@ public abstract class GameRendererMixin {
                 pass.setUniform("CustomUniforms", uniforms.getCustomUniformsBuffer());
                 pass.setUniform("WidgetInfo", uniforms.getWidgetInfoBuffer());
                 pass.setUniform("BgConfig", uniforms.getBgConfigBuffer());
+                pass.setUniform("StyleInfo", uniforms.getStyleInfoBuffer());
 //#if MC >= 26
 //#if MC >= 26.3
                 pass.setUniform("Sampler0", LiquidGlassPrecomputeRuntime.get().getLiveBackdropView(), RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR));

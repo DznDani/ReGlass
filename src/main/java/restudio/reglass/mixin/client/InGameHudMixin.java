@@ -167,7 +167,10 @@ public abstract class InGameHudMixin {
 
         int circleX = (int) Math.round(this.reglass$slotBlobX) + 1;
 
-        WidgetStyle selectorStyle = new WidgetStyle().smoothing(-0.005f).layer(1);
+        WidgetStyle selectorStyle = new WidgetStyle()
+                .smoothing(-0.005f)
+                .cornerExponent(ReGlassConfig.INSTANCE.hotbarSelectionShape.cornerExponent())
+                .layer(1);
 
         ReGlassApi.create(context)
                 .dimensions(circleX, offhandY, hotbarHeight, hotbarHeight)

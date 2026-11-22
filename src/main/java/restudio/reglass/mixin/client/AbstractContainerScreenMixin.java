@@ -55,10 +55,12 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 //#if MC < 26
 import restudio.reglass.client.ContainerColorContext;
 //#endif
+import restudio.reglass.client.LiquidGlassUniforms;
 import restudio.reglass.client.api.ReGlassApi;
 import restudio.reglass.client.api.ReGlassConfig;
 import restudio.reglass.client.api.WidgetStyle;
@@ -80,6 +82,7 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
     @Shadow @Final protected Component playerInventoryTitle;
     @Shadow protected int leftPos;
     @Shadow protected int topPos;
+    @Shadow protected Slot hoveredSlot;
 //#else
 @Mixin(HandledScreen.class)
 public abstract class AbstractContainerScreenMixin<T extends ScreenHandler> extends Screen {
@@ -92,9 +95,14 @@ public abstract class AbstractContainerScreenMixin<T extends ScreenHandler> exte
     @Shadow @Final protected Text playerInventoryTitle;
     @Shadow protected int x;
     @Shadow protected int y;
+    @Shadow protected Slot focusedSlot;
 //#endif
 
     @Unique private final Map<Slot, int[]> reglass$originalSlotPositions = new IdentityHashMap<>();
+    @Unique private double reglass$highlightX = Double.NaN;
+    @Unique private double reglass$highlightY = Double.NaN;
+    @Unique private boolean reglass$hadHoveredSlot = false;
+    @Unique private final long reglass$highlightFadeKey = System.identityHashCode(this) * 31L ^ 0x5107CAFE1234L;
 
 //#if MC >= 26
     protected AbstractContainerScreenMixin(Component title) {
@@ -106,6 +114,7 @@ public abstract class AbstractContainerScreenMixin<T extends ScreenHandler> exte
 
     @Inject(method = "init", at = @At("TAIL"))
     private void reglass$updateContainerSlotLayout(CallbackInfo ci) {
+        this.reglass$hadHoveredSlot = false;
         reglass$rememberOriginalSlots();
         ReGlassConfig cfg = ReGlassConfig.INSTANCE;
         if (!cfg.features.enableRedesign || !cfg.features.containers) {
@@ -201,6 +210,147 @@ public abstract class AbstractContainerScreenMixin<T extends ScreenHandler> exte
 //#endif
         }
         ci.cancel();
+    }
+
+//#if MC >= 26
+    @Inject(method = "extractSlotHighlightBack", at = @At("HEAD"), cancellable = true)
+    private void reglass$renderSlotHighlightBack(GuiGraphicsExtractor context, CallbackInfo ci) {
+//#else
+    @Inject(method = "drawSlotHighlightBack", at = @At("HEAD"), cancellable = true)
+    private void reglass$renderSlotHighlightBack(DrawContext context, CallbackInfo ci) {
+//#endif
+        ReGlassConfig cfg = ReGlassConfig.INSTANCE;
+        if (!cfg.features.enableRedesign || !cfg.features.containers || !cfg.features.slotSelection) {
+            this.reglass$hadHoveredSlot = false;
+            return;
+        }
+
+//#if MC >= 26
+        Slot slot = this.hoveredSlot;
+        boolean highlightable = slot != null && slot.isHighlightable();
+//#else
+        Slot slot = this.focusedSlot;
+        boolean highlightable = slot != null && slot.canBeHighlighted();
+//#endif
+        if (!highlightable) {
+            this.reglass$hadHoveredSlot = false;
+            ci.cancel();
+            return;
+        }
+
+//#if MC >= 26
+        double targetX = this.leftPos + slot.x - 2;
+        double targetY = this.topPos + slot.y - 2;
+//#else
+        double targetX = this.x + slot.x - 2;
+        double targetY = this.y + slot.y - 2;
+//#endif
+        if (!this.reglass$hadHoveredSlot
+                || Double.isNaN(this.reglass$highlightX)
+                || Double.isNaN(this.reglass$highlightY)
+                || Math.hypot(targetX - this.reglass$highlightX, targetY - this.reglass$highlightY) > 120.0) {
+            this.reglass$highlightX = targetX;
+            this.reglass$highlightY = targetY;
+        } else {
+            double dt = LiquidGlassUniforms.get().getFrameDeltaSeconds();
+            double alpha = 1.0 - Math.exp(-Math.max(0.0, dt) / 0.045);
+            alpha = Math.max(0.0, Math.min(1.0, alpha));
+            this.reglass$highlightX += (targetX - this.reglass$highlightX) * alpha;
+            this.reglass$highlightY += (targetY - this.reglass$highlightY) * alpha;
+            if (Math.hypot(targetX - this.reglass$highlightX, targetY - this.reglass$highlightY) < 0.05) {
+                this.reglass$highlightX = targetX;
+                this.reglass$highlightY = targetY;
+            }
+        }
+        this.reglass$hadHoveredSlot = true;
+
+        int renderX = (int) Math.round(this.reglass$highlightX);
+        int renderY = (int) Math.round(this.reglass$highlightY);
+
+        ReGlassApi.create(context)
+                .dimensions(renderX, renderY, 20, 20)
+                .cornerRadius(10f)
+                .hover(1f)
+                .focus(0.6f)
+                .screenSpace()
+                .style(WidgetStyle.create()
+                        .tint(0xFFFFFF, 0.14f)
+                        .smoothing(0f)
+                        .cornerExponent(cfg.slotSelectionShape.cornerExponent())
+                        .shadow(8f, 0.18f, 0f, 1.5f)
+                        .shadowColor(0x000000, 0.7f)
+                        .refractionThickness(10f)
+                        .fresnelRange(28f)
+                        .fresnelFactor(30f)
+                        .fadeKey(this.reglass$highlightFadeKey)
+                        .layer(2))
+                .render();
+
+        LiquidGlassUniforms.get().tryApplyBlur(context);
+        ci.cancel();
+    }
+
+//#if MC >= 26
+    @Inject(method = "extractSlotHighlightFront", at = @At("HEAD"), cancellable = true)
+    private void reglass$cancelSlotHighlightFront(GuiGraphicsExtractor context, CallbackInfo ci) {
+//#else
+    @Inject(method = "drawSlotHighlightFront", at = @At("HEAD"), cancellable = true)
+    private void reglass$cancelSlotHighlightFront(DrawContext context, CallbackInfo ci) {
+//#endif
+        ReGlassConfig cfg = ReGlassConfig.INSTANCE;
+        if (cfg.features.enableRedesign && cfg.features.containers && cfg.features.slotSelection) {
+            ci.cancel();
+        }
+    }
+
+//#if MC >= 26
+    @Redirect(
+            method = "extractSlot",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lnet/minecraft/client/gui/GuiGraphicsExtractor;fill(IIIII)V"
+            )
+    )
+    private void reglass$renderQuickCraftHighlight(GuiGraphicsExtractor context, int x1, int y1, int x2, int y2, int color) {
+//#else
+    @Redirect(
+            method = "drawSlot",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lnet/minecraft/client/gui/DrawContext;fill(IIIII)V"
+            )
+    )
+    private void reglass$renderQuickCraftHighlight(DrawContext context, int x1, int y1, int x2, int y2, int color) {
+//#endif
+        ReGlassConfig cfg = ReGlassConfig.INSTANCE;
+        if (!cfg.features.enableRedesign || !cfg.features.containers || !cfg.features.slotSelection) {
+            context.fill(x1, y1, x2, y2, color);
+            return;
+        }
+        if (LiquidGlassUniforms.get().getCount() >= LiquidGlassUniforms.MAX_WIDGETS - 4) {
+            return;
+        }
+
+//#if MC >= 26
+        int renderX = this.leftPos + x1 - 1;
+        int renderY = this.topPos + y1 - 1;
+//#else
+        int renderX = this.x + x1 - 1;
+        int renderY = this.y + y1 - 1;
+//#endif
+        ReGlassApi.create(context)
+                .dimensions(renderX, renderY, 18, 18)
+                .cornerRadius(9f)
+                .screenSpace()
+                .style(WidgetStyle.create()
+                        .tint(0xFFFFFF, 0.13f)
+                        .smoothing(0f)
+                        .cornerExponent(cfg.slotSelectionShape.cornerExponent())
+                        .shadow(0f, 0f, 0f, 0f)
+                        .refractionThickness(8f)
+                        .fresnelRange(24f)
+                        .layer(2))
+                .render();
     }
 
     @Unique

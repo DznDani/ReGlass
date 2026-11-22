@@ -57,6 +57,7 @@ public final class LiquidGlassUniforms {
     private final GpuBuffer customUniforms;
     private final GpuBuffer widgetInfo;
     private final GpuBuffer bgConfig;
+    private final GpuBuffer styleInfo;
 
     private final List<LiquidGlassGuiElementRenderState> widgets = new ArrayList<>();
     private boolean screenWantsBlur = false;
@@ -108,6 +109,9 @@ public final class LiquidGlassUniforms {
         bcalc.putVec2();
         int bgConfigSize = bcalc.get();
         bgConfig = RenderSystem.getDevice().createBuffer(() -> "reglass BgConfig", 130, bgConfigSize);
+
+        int styleInfoSize = MAX_WIDGETS * (16 * 4);
+        styleInfo = RenderSystem.getDevice().createBuffer(() -> "reglass StyleInfo", 130, styleInfoSize);
     }
 
     public void beginFrame(double dtSeconds) {
@@ -381,10 +385,14 @@ public final class LiquidGlassUniforms {
                 Bounds shadow = GlassRenderBounds.shadow(x, y, width, height, style.getShadowExpand(),
                         style.getShadowFactor(), style.getShadowColorAlpha(),
                         style.getShadowOffsetX() * scale, style.getShadowOffsetY() * scale);
-                if (scissor != null) { shape = shape.clip(scissor); shadow = shadow.clip(scissor); }
+                Bounds glow = GlassRenderBounds.glow(x, y, width, height,
+                        style.getGlowSpread() * scale, style.getGlowIntensity(),
+                        style.getGlowOffsetX() * scale, style.getGlowOffsetY() * scale);
+                Bounds combinedShadow = shadow.union(glow);
+                if (scissor != null) { shape = shape.clip(scissor); combinedShadow = combinedShadow.clip(scissor); }
                 shapeBounds[i] = shape;
-                shadowBounds[i] = shadow;
-                Bounds footprint = shape.union(shadow);
+                shadowBounds[i] = combinedShadow;
+                Bounds footprint = shape.union(combinedShadow);
                 layerBounds[layer] = layerBounds[layer] == null ? footprint : layerBounds[layer].union(footprint);
             }
             b.putFloat((float) renderWidgets.size());
@@ -464,7 +472,7 @@ public final class LiquidGlassUniforms {
             for (int i = 0; i < MAX_WIDGETS; i++) {
                 if (i < renderWidgets.size()) {
                     WidgetStyle s = renderWidgets.get(i).style();
-                    b.putVec4(s.getSmoothing(), 0f, 0f, 0f);
+                    b.putVec4(s.getSmoothing(), s.getCornerExponent(), s.getTintedGlass(), 0f);
                 } else b.putVec4(0f, 0f, 0f, 0f);
             }
 
@@ -556,6 +564,42 @@ public final class LiquidGlassUniforms {
                 }
             }
         }
+
+//#if MC >= 26.2
+        try (var map = styleInfo.map(false, true)) {
+//#else
+        try (var map = RenderSystem.getDevice().createCommandEncoder().mapBuffer(styleInfo, false, true)) {
+//#endif
+            Std140Builder b = Std140Builder.intoBuffer(map.data());
+            for (int i = 0; i < MAX_WIDGETS; i++) {
+                if (i < renderWidgets.size()) {
+                    WidgetStyle s = renderWidgets.get(i).style();
+                    b.putVec4(s.getGlowIntensity(), s.getGlowSpread() * scale, s.getGlowOffsetX() * scale, s.getGlowOffsetY() * scale);
+                } else b.putVec4(0f, 0f, 0f, 0f);
+            }
+            for (int i = 0; i < MAX_WIDGETS; i++) {
+                if (i < renderWidgets.size()) {
+                    WidgetStyle s = renderWidgets.get(i).style();
+                    b.putVec4((float) s.getGlowBlend().shaderId(), s.getGlowCoreRatio(), (float) s.getShadowBlend().shaderId(), s.getLayerDepthBlend());
+                } else b.putVec4(0f, 0f, 0f, 0f);
+            }
+            for (int i = 0; i < MAX_WIDGETS; i++) {
+                if (i < renderWidgets.size()) {
+                    int col = renderWidgets.get(i).style().getGlowColor();
+//#if MC >= 26
+                    b.putVec4(ARGB.red(col) / 255f, ARGB.green(col) / 255f, ARGB.blue(col) / 255f, 0f);
+//#else
+                    b.putVec4(ColorHelper.getRed(col) / 255f, ColorHelper.getGreen(col) / 255f, ColorHelper.getBlue(col) / 255f, 0f);
+//#endif
+                } else b.putVec4(0f, 0f, 0f, 0f);
+            }
+            for (int i = 0; i < MAX_WIDGETS; i++) {
+                if (i < renderWidgets.size()) {
+                    WidgetStyle s = renderWidgets.get(i).style();
+                    b.putVec4((float) s.getSegmentCount(), s.getSegmentGap() * scale, s.getSegmentBarWidth() * scale, 0f);
+                } else b.putVec4(0f, 0f, 0f, 0f);
+            }
+        }
     }
 
     public int getCount() { return widgets.size(); }
@@ -564,5 +608,6 @@ public final class LiquidGlassUniforms {
     public GpuBuffer getCustomUniformsBuffer() { return customUniforms; }
     public GpuBuffer getWidgetInfoBuffer() { return widgetInfo; }
     public GpuBuffer getBgConfigBuffer() { return bgConfig; }
+    public GpuBuffer getStyleInfoBuffer() { return styleInfo; }
     public List<Integer> getUsedBlurRadiiOrdered() { return usedBlurRadiiOrdered; }
 }
